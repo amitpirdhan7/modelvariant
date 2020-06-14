@@ -1,6 +1,7 @@
 package processor;
 
 import constants.Constant;
+import entity.FieldError;
 import entity.OptionModel;
 import entity.VariantModel;
 import enums.EAggregates;
@@ -59,12 +60,43 @@ public class VariantFileProcessor extends AFileProcessor {
         continue;
       }
       HSSFSheet sheet = workBook.getSheetAt(sheetIndex);
-      processSheet(sheetName, sheet);
+      List<FieldError> errorList = new ArrayList<FieldError>();
+      try {
+        processSheet(sheetName, sheet, errorList);
+        if(errorList != null && errorList.size() != 0) {
+          for(int i = 0 ; i < errorList.size() ; i++) {
+            FieldError fieldError = errorList.get(i);
+            System.out.println("Exception Occured While Processing sheet");
+            System.out.println("File Type :: "
+                + fieldError.getFileType()
+                + " Sheet Name :: "
+                + fieldError.getSheetName()
+                + " Row Index :: "
+                + fieldError.getRowIndex()
+                + " Column index :: "
+                + fieldError.getColumnIndex()
+                + " Error messsage :: "
+                + fieldError.getMessage());
+          }
+        }
+      } catch (ProcessorException e) {
+        System.out.println("Exception Occured While Processing sheet");
+        System.out.println("File Type :: "
+            + e.getFileType()
+            + " Sheet Name :: "
+            + e.getSheetName()
+            + " Row Index :: "
+            + e.getRowIndex()
+            + " Column index :: "
+            + e.getColumnIndex()
+            + " Error messsage :: "
+            + e.getMessage());
+      }
     }
     System.out.println(prefix + "Finished Processing of Workbooks");
   }
 
-  private void processSheet(String sheetName, HSSFSheet sheet)
+  private void processSheet(String sheetName, HSSFSheet sheet, List<FieldError> errorList)
       throws ProcessorException {
     sheetPrefix = String.format(sheetPrefix,sheetName);
     System.out.println(sheetPrefix + "Start processing of sheet");
@@ -74,7 +106,7 @@ public class VariantFileProcessor extends AFileProcessor {
 
     VariantModel variantModel = validateAndBuildModel(sheetName,rowCount, columnCount,sheet);
 
-    OptionModel optionModel = validateAndOptionModel(variantModel, sheetName, sheet, rowCount, columnCount);
+    OptionModel optionModel = validateAndOptionModel(variantModel, sheetName, sheet, rowCount, columnCount, errorList);
 
     Map<String, String> optionSumByVariant = optionModel.getOptionsByVariant();
     Map<String, String> optionSumMap = new HashMap<String, String>();
@@ -86,7 +118,8 @@ public class VariantFileProcessor extends AFileProcessor {
       String value = entry.getValue();
       if(!key.contains(Constant.UNKNOWN_VARIANT_PLACEHOLDER)) {
         if(optionSumMap.containsKey(value)) {
-          throw new ProcessorException(fileType, sheetName, "two variant having same value, those are  " + key + " and " + optionSumMap.get(value));
+          errorList.add(new FieldError(fileType, sheetName, "two variant having same value, those are  " + key + " and " + optionSumMap.get(value)));
+          continue;
         }
         optionSumMap.put(value, key);
       }
@@ -94,6 +127,9 @@ public class VariantFileProcessor extends AFileProcessor {
       unKnownSumMap.put(value, key);
     }
 
+    if(errorList != null && errorList.size() != 0) {
+      return;
+    }
 
     for(int index = 1 ; index <= variantModel.getUnKnownVariantCount() ; index++) {
       String unKnownVariant = Constant.UNKNOWN_VARIANT_PLACEHOLDER+index;
@@ -109,7 +145,7 @@ public class VariantFileProcessor extends AFileProcessor {
     System.out.println(sheetPrefix + "Finished Processing of sheet");
   }
 
-  private OptionModel validateAndOptionModel(VariantModel variantModel, String sheetName, Sheet sheet, Integer rowCount, Integer columnCount)
+  private OptionModel validateAndOptionModel(VariantModel variantModel, String sheetName, Sheet sheet, Integer rowCount, Integer columnCount, List<FieldError> errorList)
       throws ProcessorException {
     Map<Integer, String> variantByIndex = variantModel.getVariantByIndex();
 
@@ -156,13 +192,15 @@ public class VariantFileProcessor extends AFileProcessor {
 
           if((finalOptionByIndex != null && finalOptionSumByVariant == null)
               || (finalOptionByIndex == null && finalOptionSumByVariant != null)) {
-            throw new ProcessorException(fileType, sheetName, rowIndex+1,columnIndex+1, "New variant required for existing options");
+            errorList.add(new FieldError(fileType, sheetName, rowIndex+1,columnIndex+1, "New variant required for existing options"));
+            continue;
           }
 
           if(finalOptionByIndex != null
               && finalOptionSumByVariant != null
               && !finalOptionSumByVariant.equals(finalOptionByIndex)) {
-            throw new ProcessorException(fileType, sheetName, rowIndex+1,columnIndex+1, "New variant required for existing options ");
+            errorList.add(new FieldError(fileType, sheetName, rowIndex+1,columnIndex+1, "New variant required for existing options"));
+            continue;
           }
 
           optionsByIndex.put(columnIndex, finalOptionByIndex);
