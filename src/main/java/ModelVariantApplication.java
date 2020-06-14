@@ -2,6 +2,8 @@ import exception.ProcessorException;
 import processor.AFileProcessor;
 import processor.VariantFileProcessor;
 
+import java.util.Scanner;
+
 /**
  * Created by sumansharma on 13/6/20.
  */
@@ -10,7 +12,9 @@ public class ModelVariantApplication {
   public static void main(String []args) {
 
     System.out.println("Provide Variant Sheet File Path");
-    String configPath = "/home/amitsharma/Documents/variant.xls";
+    Scanner scanner = new Scanner(System.in);
+    String configPath = "/home/amitsharma/Documents/variant1.xls";
+    //String configPath = scanner.next();
     long start = System.currentTimeMillis();
     long end = 0l;
     AFileProcessor variantFileProcessor = new VariantFileProcessor();

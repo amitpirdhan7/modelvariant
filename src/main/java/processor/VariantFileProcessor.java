@@ -77,28 +77,34 @@ public class VariantFileProcessor extends AFileProcessor {
     OptionModel optionModel = validateAndOptionModel(variantModel, sheetName, sheet, rowCount, columnCount);
 
     Map<String, String> optionSumByVariant = optionModel.getOptionsByVariant();
-    String newVariantValue = optionSumByVariant.get(Constant.UNKNOWN_VARIANT_PLACEHOLDER);
     Map<String, String> optionSumMap = new HashMap<String, String>();
+    Map<String, String> unKnownSumMap = new HashMap<String, String>();
     Iterator iterator = optionSumByVariant.entrySet().iterator();
     while (iterator.hasNext()) {
       Map.Entry<String, String> entry = (Map.Entry<String, String>) iterator.next();
       String key = entry.getKey();
       String value = entry.getValue();
-      if(!Constant.UNKNOWN_VARIANT_PLACEHOLDER.equals(key)) {
+      if(!key.contains(Constant.UNKNOWN_VARIANT_PLACEHOLDER)) {
         if(optionSumMap.containsKey(value)) {
           throw new ProcessorException(fileType, sheetName, "two variant having same value, those are  " + key + " and " + optionSumMap.get(value));
         }
         optionSumMap.put(value, key);
       }
+
+      unKnownSumMap.put(value, key);
     }
 
 
-    if(optionSumMap.containsKey(newVariantValue)) {
-      System.out.println(sheetPrefix + "New Variant Not required, Base variant :: " + optionSumMap.get(newVariantValue));
-    } else {
-      System.out.println(sheetPrefix + "New Variant required");
+    for(int index = 1 ; index <= variantModel.getUnKnownVariantCount() ; index++) {
+      String unKnownVariant = Constant.UNKNOWN_VARIANT_PLACEHOLDER+index;
+      String newVariantValue = optionSumByVariant.get(unKnownVariant);
+      if(optionSumMap.containsKey(newVariantValue) || (unKnownSumMap.containsKey(newVariantValue) && !unKnownSumMap.get(newVariantValue).equals(unKnownVariant))) {
+        String baseVariant = optionSumMap.get(newVariantValue) != null ? optionSumMap.get(newVariantValue) : unKnownSumMap.get(newVariantValue);
+        System.out.println(sheetPrefix + "New Variant Not required for variant "+ unKnownVariant +", Base variant :: " + baseVariant);
+      } else {
+        System.out.println(sheetPrefix + "New Variant required for variant " + unKnownVariant);
+      }
     }
-
 
     System.out.println(sheetPrefix + "Finished Processing of sheet");
   }
@@ -150,13 +156,13 @@ public class VariantFileProcessor extends AFileProcessor {
 
           if((finalOptionByIndex != null && finalOptionSumByVariant == null)
               || (finalOptionByIndex == null && finalOptionSumByVariant != null)) {
-            throw new ProcessorException(fileType, sheetName, rowIndex+1,columnIndex+1, "Options sum till this cell or variant sum is not matching");
+            throw new ProcessorException(fileType, sheetName, rowIndex+1,columnIndex+1, "New variant required for existing options");
           }
 
           if(finalOptionByIndex != null
               && finalOptionSumByVariant != null
               && !finalOptionSumByVariant.equals(finalOptionByIndex)) {
-            throw new ProcessorException(fileType, sheetName, rowIndex+1,columnIndex+1, "Options sum till this cell or variant sum is not matching");
+            throw new ProcessorException(fileType, sheetName, rowIndex+1,columnIndex+1, "New variant required for existing options ");
           }
 
           optionsByIndex.put(columnIndex, finalOptionByIndex);
@@ -186,7 +192,8 @@ public class VariantFileProcessor extends AFileProcessor {
       throw new ProcessorException(fileType,sheetName,"No rows in sheet");
     }
 
-
+    int unKnownVariantCount = 0;
+    int startPointIndex = -1;
     for(int rowIndex = 0 ; rowIndex <= 2 ; rowIndex ++) {
       Row row = sheet.getRow(rowIndex);
 
@@ -205,22 +212,30 @@ public class VariantFileProcessor extends AFileProcessor {
       for(int columnIndex = 1 ; columnIndex < columnCount ; columnIndex ++) {
          Cell cell = row.getCell(columnIndex);
 
-         Boolean findVariantColumn = (rowIndex == 2 && columnIndex == columnCount -1 );
+         Boolean variantRow = (rowIndex == 2);
 
-         if(!findVariantColumn) {
+         if(!variantRow) {
            if(cell == null || cell.getStringCellValue() == null || cell.getStringCellValue().trim() == "") {
              throw new ProcessorException(fileType, sheetName, rowIndex + 1, columnIndex + 1, "Cell is empty");
            }
          }
 
-         if(findVariantColumn) {
-           if(cell != null && cell.getStringCellValue() != null && cell.getStringCellValue().trim() != "") {
+         if(variantRow) {
+
+           if(cell == null || cell.getStringCellValue() == null || cell.getStringCellValue().trim() == "") {
+             if(startPointIndex == -1) {
+               startPointIndex = columnIndex;
+             }
+             unKnownVariantCount++;
+           }
+
+           if(startPointIndex != -1 && cell != null && cell.getStringCellValue() != null && cell.getStringCellValue().trim() != "") {
              throw new ProcessorException(fileType, sheetName, rowIndex +1, columnIndex +1, " Unknown variant column is having value");
            }
          }
 
          if(rowIndex == 2) {
-           String cellValue = (cell == null || cell.getStringCellValue() == "") ? Constant.UNKNOWN_VARIANT_PLACEHOLDER : cell.getStringCellValue();
+           String cellValue = (cell == null || cell.getStringCellValue() == "") ? Constant.UNKNOWN_VARIANT_PLACEHOLDER + unKnownVariantCount : cell.getStringCellValue();
            variantByIndex.put(columnIndex, cellValue);
          }
 
@@ -231,6 +246,6 @@ public class VariantFileProcessor extends AFileProcessor {
     if(MapUtils.isEmpty(variantByIndex)) {
       throw new ProcessorException(fileType, sheetName,"Some error occured in variant files");
     }
-    return new VariantModel(variantByIndex);
+    return new VariantModel(variantByIndex, unKnownVariantCount);
   }
 }
