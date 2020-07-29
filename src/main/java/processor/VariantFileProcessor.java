@@ -24,7 +24,7 @@ public class VariantFileProcessor extends AFileProcessor {
 
   private static final String fileType = EFileType.VARIANT.name();
   private static final String prefix = "File Type : " + fileType + ":: ";
-  private static String sheetPrefix = prefix + " Sheet Name : %s ::";
+  private static String sheetPrefixPattern = prefix + " Sheet Name : %s :: ";
 
   public Boolean process(String configPath)
       throws ProcessorException {
@@ -66,7 +66,7 @@ public class VariantFileProcessor extends AFileProcessor {
         if(errorList != null && errorList.size() != 0) {
           for(int i = 0 ; i < errorList.size() ; i++) {
             FieldError fieldError = errorList.get(i);
-            System.out.println("Exception Occured While Processing sheet");
+            //System.out.println("Exception Occured While Processing sheet");
             System.out.println("File Type :: "
                 + fieldError.getFileType()
                 + " Sheet Name :: "
@@ -98,7 +98,7 @@ public class VariantFileProcessor extends AFileProcessor {
 
   private void processSheet(String sheetName, HSSFSheet sheet, List<FieldError> errorList)
       throws ProcessorException {
-    sheetPrefix = String.format(sheetPrefix,sheetName);
+    String sheetPrefix = String.format(sheetPrefixPattern,sheetName);
     System.out.println(sheetPrefix + "Start processing of sheet");
 
     int rowCount = sheet.getLastRowNum();
@@ -127,9 +127,10 @@ public class VariantFileProcessor extends AFileProcessor {
       unKnownSumMap.put(value, key);
     }
 
-    if(errorList != null && errorList.size() != 0) {
-      return;
-    }
+    //Check this
+//    if(errorList != null && errorList.size() != 0) {
+//      return;
+//    }
 
     for(int index = 1 ; index <= variantModel.getUnKnownVariantCount() ; index++) {
       String unKnownVariant = Constant.UNKNOWN_VARIANT_PLACEHOLDER+index;

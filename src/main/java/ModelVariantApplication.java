@@ -12,7 +12,7 @@ public class ModelVariantApplication {
 
     System.out.println("Provide Variant Sheet File Path");
     Scanner scanner = new Scanner(System.in);
-    String configPath = "/home/amitsharma/Documents/variant2.xls";
+    String configPath = "/home/amitsharma/Documents/testvariant1.xls";
     //String configPath = scanner.next();
     long start = System.currentTimeMillis();
     long end = 0l;
